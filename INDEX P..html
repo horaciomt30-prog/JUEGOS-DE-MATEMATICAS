@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DecimaLab - Clasificador de Decimales</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'brand-purple': '#7C3AED',
+                        'brand-pink': '#EC4899',
+                        'brand-amber': '#F59E0B',
+                        'brand-emerald': '#10B981',
+                        'brand-cyan': '#06B6D4',
+                        'exact-color': '#10B981',
+                        'pure-color': '#3B82F6',
+                        'mixed-color': '#8B5CF6',
+                    },
+                    fontFamily: {
+                        'display': ['Fredoka', 'sans-serif'],
+                        'body': ['Nunito', 'sans-serif'],
+                    },
+                    animation: {
+                        'bounce-short': 'bounceShort 0.4s ease-in-out',
+                        'shake': 'shake 0.5s ease-in-out',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                        'float': 'float 3s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        bounceShort: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' },
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '20%, 60%': { transform: 'translateX(-8px)' },
+                            '40%, 80%': { transform: 'translateX(8px)' },
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { filter: 'drop-shadow(0 0 15px rgba(236, 72, 153, 0.6))' },
+                            '50%': { filter: 'drop-shadow(0 0 25px rgba(124, 58, 237, 0.8))' },
+                        },
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0px)' },
+                            '50%': { transform: 'translateY(-8px)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Nunito', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #311042 100%);
+            min-height: 100vh;
+            color: #f8fafc;
+        }
+
+        h1, h2, h3, .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        /* Notación con vinculum/periodo */
+        .vinculum {
+            text-decoration: overline;
+            text-decoration-thickness: 2px;
+        }
+
+        /* Estilos personalizados para las tarjetas de respuestas */
+        .option-btn {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .option-btn:hover {
+            transform: translateY(-4px) scale(1.02);
+            box-shadow: 0 12px 20px -5px rgba(0, 0, 0, 0.3);
+        }
+
+        .option-btn:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        /* Fracciones visuales */
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            vertical-align: middle;
+            text-align: center;
+            padding: 0 4px;
+        }
+
+        .fraction .numerator {
+            border-bottom: 2px solid currentColor;
+            padding-bottom: 2px;
+        }
+
+        .fraction .denominator {
+            padding-top: 2px;
+        }
+
+        /* Barra de progreso animada */
+        .progress-bar-fill {
+            transition: width 0.4s ease-out;
+        }
+
+        /* Modal backdrop Blur */
+        .glass-panel {
+            background: rgba(30, 27, 75, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Ocultar scrollbar pero mantener scroll */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen justify-between overflow-x-hidden selection:bg-brand-pink selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="w-full p-4 glass-panel sticky top-0 z-40 shadow-lg">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="showScreen('screen-welcome')">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-brand-pink to-brand-purple flex items-center justify-center shadow-lg shadow-purple-500/30 animate-float">
+                    <i class="fa-solid font-bold text-white text-xl">0.3̅</i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-wide bg-gradient-to-r from-pink-400 via-purple-300 to-indigo-300 bg-clip-text text-transparent">
+                        Decima<span class="text-amber-400">Lab</span>
+                    </h1>
+                    <p class="text-xs text-purple-200 opacity-80 hidden sm:block">Aprende y clasifica números decimales</p>
+                </div>
+            </div>
+
+            <!-- Header status during quiz -->
+            <div id="header-stats" class="hidden flex items-center gap-4 sm:gap-6">
+                <!-- Streak counter -->
+                <div class="flex items-center gap-1.5 bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 rounded-full">
+                    <i class="fa-solid fa-fire text-amber-400 text-lg animate-bounce-short"></i>
+                    <span id="streak-count" class="font-bold text-amber-300 text-sm sm:text-base">0</span>
+                </div>
+
+                <!-- Lives -->
+                <div id="lives-container" class="flex gap-1 text-red-500 text-base sm:text-lg">
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart"></i>
+                </div>
+
+                <!-- Score -->
+                <div class="bg-purple-600/30 border border-purple-400/30 px-3.5 py-1 rounded-xl text-center">
+                    <span class="text-xs text-purple-200 block leading-tight">Puntos</span>
+                    <span id="score-text" class="font-bold text-amber-300 text-base sm:text-lg leading-tight">0</span>
+                </div>
+            </div>
+
+            <!-- Quick Guide Button -->
+            <button onclick="toggleTheoryModal(true)" class="p-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white transition flex items-center gap-2 text-sm font-semibold">
+                <i class="fa-solid fa-book-open text-brand-pink"></i>
+                <span class="hidden md:inline">Guía Teórica</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow flex items-center justify-center p-4 sm:p-6 relative">
+        
+        <!-- Background decorative elements -->
+        <div class="absolute top-12 left-10 w-72 h-72 bg-purple-600/20 rounded-full filter blur-3xl pointer-events-none"></div>
+        <div class="absolute bottom-10 right-10 w-80 h-80 bg-pink-600/20 rounded-full filter blur-3xl pointer-events-none"></div>
+
+        <!-- SCREEN 1: WELCOME / MAIN MENU -->
+        <section id="screen-welcome" class="w-full max-w-4xl mx-auto space-y-8 py-4">
+            <div class="text-center space-y-4">
+                <div class="inline-block px-4 py-1.5 rounded-full bg-purple-500/20 border border-purple-400/30 text-purple-300 text-sm font-medium mb-2">
+                    ✨ ¡Desafío de Matemáticas Interactivo!
+                </div>
+                <h2 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight">
+                    Domina los <span class="bg-gradient-to-r from-amber-300 via-pink-400 to-purple-400 bg-clip-text text-transparent">Números Decimales</span>
+                </h2>
+                <p class="text-slate-300 max-w-2xl mx-auto text-base sm:text-lg">
+                    Aprende a diferenciar entre decimales <strong class="text-emerald-400">Exactos</strong>, <strong class="text-blue-400">Periódicos Puros</strong> y <strong class="text-purple-400">Periódicos Mixtos</strong> de forma divertida.
+                </p>
+            </div>
+
+            <!-- Visual classification preview cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 my-6">
+                <div class="glass-card p-5 rounded-2xl border-t-4 border-emerald-500 hover:border-emerald-400 transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md">Exacto</span>
+                        <i class="fa-solid fa-check-circle text-emerald-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-1">Tiene un fin</h3>
+                    <p class="text-xs text-slate-300 mb-3">Sus cifras decimales se terminan por completo.</p>
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl text-center font-mono text-emerald-300 text-lg font-bold">
+                        0.75 &nbsp;|<nbsp; 2.5
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-2xl border-t-4 border-blue-500 hover:border-blue-400 transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold uppercase tracking-wider text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-md">Periódico Puro</span>
+                        <i class="fa-solid fa-repeat text-blue-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-1">Repetición inmediata</h3>
+                    <p class="text-xs text-slate-300 mb-3">El período empieza **justo después** de la coma.</p>
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl text-center font-mono text-blue-300 text-lg font-bold">
+                        0.333... | 1.<span class="vinculum">27</span>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-2xl border-t-4 border-purple-500 hover:border-purple-400 transition">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-xs font-bold uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2.5 py-1 rounded-md">Periódico Mixto</span>
+                        <i class="fa-solid fa-shuffle text-purple-400 text-xl"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-white mb-1">Anteperíodo + Repetición</h3>
+                    <p class="text-xs text-slate-300 mb-3">Tiene números **después de la coma** antes de repetir.</p>
+                    <div class="bg-slate-900/60 p-2.5 rounded-xl text-center font-mono text-purple-300 text-lg font-bold">
+                        0.1666... | 2.1<span class="vinculum">35</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mode Selector / Start Options -->
+            <div class="glass-panel p-6 sm:p-8 rounded-3xl max-w-2xl mx-auto shadow-2xl border border-white/10 space-y-6">
+                <h3 class="text-2xl font-bold text-center text-white">Elige tu modo de juego</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <!-- Standard Quiz Button -->
+                    <button onclick="startGame('normal')" class="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-br from-brand-purple to-indigo-700 hover:from-purple-600 hover:to-indigo-600 text-left transition-all duration-300 shadow-lg shadow-purple-900/40 border border-purple-400/30">
+                        <div class="flex justify-between items-start mb-2">
+                            <i class="fa-solid fa-gamepad text-3xl text-amber-300 group-hover:scale-110 transition"></i>
+                            <span class="bg-amber-400/20 text-amber-300 text-xs font-bold px-2 py-0.5 rounded-full">Recomendado</span>
+                        </div>
+                        <h4 class="text-xl font-bold text-white">Modo Clásico</h4>
+                        <p class="text-xs text-purple-200 mt-1">10 preguntas con explicaciones paso a paso y 3 vidas.</p>
+                    </button>
+
+                    <!-- Speed Challenge Button -->
+                    <button onclick="startGame('time')" class="group relative overflow-hidden p-5 rounded-2xl bg-gradient-to-br from-pink-600 to-rose-700 hover:from-pink-500 hover:to-rose-600 text-left transition-all duration-300 shadow-lg shadow-pink-900/40 border border-pink-400/30">
+                        <div class="flex justify-between items-start mb-2">
+                            <i class="fa-solid fa-stopwatch text-3xl text-pink-200 group-hover:scale-110 transition"></i>
+                            <span class="bg-pink-400/20 text-pink-200 text-xs font-bold px-2 py-0.5 rounded-full">Contrarreloj</span>
+                        </div>
+                        <h4 class="text-xl font-bold text-white">Contra el Reloj</h4>
+                        <p class="text-xs text-pink-100 mt-1">Responde la mayor cantidad posible en 60 segundos.</p>
+                    </button>
+                </div>
+
+                <div class="pt-2 flex justify-center">
+                    <button onclick="toggleTheoryModal(true)" class="text-sm text-purple-300 hover:text-white underline flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-graduation-cap"></i> ¿Necesitas repasar antes de jugar? Ver teoría
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 2: GAMEPLAY / QUIZ -->
+        <section id="screen-quiz" class="w-full max-w-3xl mx-auto hidden space-y-6">
+            
+            <!-- Question Header Card -->
+            <div class="glass-panel p-6 sm:p-8 rounded-3xl shadow-2xl relative overflow-hidden border border-white/10">
+                
+                <!-- Timer & Round Progress Bar -->
+                <div class="space-y-2 mb-6">
+                    <div class="flex justify-between items-center text-xs font-bold text-purple-200">
+                        <span id="question-number-text">Pregunta 1 de 10</span>
+                        <span id="timer-display" class="hidden text-amber-400 flex items-center gap-1 font-mono text-sm">
+                            <i class="fa-solid fa-clock"></i> <span id="time-left">60</span>s
+                        </span>
+                    </div>
+                    <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-white/10">
+                        <div id="progress-bar" class="h-full bg-gradient-to-r from-brand-pink to-brand-amber rounded-full progress-bar-fill" style="width: 10%"></div>
+                    </div>
+                </div>
+
+                <!-- Main Number Display Card -->
+                <div class="text-center py-6 sm:py-10 bg-slate-900/80 rounded-2xl border border-purple-500/30 relative shadow-inner my-4 group">
+                    <span class="text-xs font-semibold uppercase tracking-widest text-purple-400 block mb-2">Clasifica este número</span>
+                    
+                    <!-- Dynamic Large Display of standard decimal or fraction -->
+                    <div id="number-display" class="text-4xl sm:text-6xl font-extrabold text-white font-mono tracking-wider flex justify-center items-center gap-4 min-h-[80px]">
+                        <!-- Rendered via JS -->
+                    </div>
+
+                    <!-- Additional notation format (e.g. fraction or vinculum alternative) -->
+                    <div id="alt-format-display" class="text-sm text-purple-300 mt-3 font-mono bg-purple-950/60 inline-block px-3 py-1 rounded-lg border border-purple-800">
+                        <!-- Rendered via JS -->
+                    </div>
+                </div>
+
+                <!-- Category Option Buttons -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mt-6">
+                    
+                    <!-- Exact -->
+                    <button onclick="checkAnswer('exacto')" class="option-btn p-4 rounded-2xl bg-emerald-600/20 border-2 border-emerald-500/50 hover:border-emerald-400 hover:bg-emerald-600/30 text-emerald-200 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-check text-2xl mb-1 text-emerald-400 group-hover:scale-110 transition"></i>
+                        <span class="font-bold text-lg text-white">Decimal Exacto</span>
+                        <span class="text-[11px] opacity-80 text-emerald-200">Tiene fin decimal</span>
+                    </button>
+
+                    <!-- Pure Periodic -->
+                    <button onclick="checkAnswer('periodico_puro')" class="option-btn p-4 rounded-2xl bg-blue-600/20 border-2 border-blue-500/50 hover:border-blue-400 hover:bg-blue-600/30 text-blue-200 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-repeat text-2xl mb-1 text-blue-400 group-hover:scale-110 transition"></i>
+                        <span class="font-bold text-lg text-white">Periódico Puro</span>
+                        <span class="text-[11px] opacity-80 text-blue-200">Repite todo tras la coma</span>
+                    </button>
+
+                    <!-- Mixed Periodic -->
+                    <button onclick="checkAnswer('periodico_mixto')" class="option-btn p-4 rounded-2xl bg-purple-600/20 border-2 border-purple-500/50 hover:border-purple-400 hover:bg-purple-600/30 text-purple-200 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-shuffle text-2xl mb-1 text-purple-400 group-hover:scale-110 transition"></i>
+                        <span class="font-bold text-lg text-white">Periódico Mixto</span>
+                        <span class="text-[11px] opacity-80 text-purple-200">Tiene anteperíodo</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Instant Feedback Banner Modal / Box -->
+            <div id="feedback-box" class="hidden p-5 rounded-2xl glass-panel border border-white/20 shadow-xl transition-all animate-bounce-short">
+                <div class="flex items-start gap-4">
+                    <div id="feedback-icon-container" class="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0">
+                        <!-- Icon JS -->
+                    </div>
+                    <div class="flex-grow">
+                        <h4 id="feedback-title" class="text-xl font-bold text-white mb-1"></h4>
+                        <p id="feedback-explanation" class="text-sm text-slate-200 leading-relaxed"></p>
+                    </div>
+                </div>
+                <div class="mt-4 flex justify-end">
+                    <button id="next-btn" onclick="nextQuestion()" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-brand-pink to-brand-purple hover:from-pink-500 hover:to-purple-500 text-white font-bold text-sm shadow-md transition flex items-center gap-2">
+                        <span>Siguiente Pregunta</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SCREEN 3: RESULTS & CELEBRATION -->
+        <section id="screen-results" class="w-full max-w-2xl mx-auto hidden py-6">
+            <div class="glass-panel p-8 rounded-3xl text-center space-y-6 shadow-2xl border border-white/20 relative overflow-hidden">
+                
+                <!-- Badge Icon -->
+                <div class="inline-flex p-4 rounded-full bg-gradient-to-tr from-amber-400 to-pink-500 text-slate-900 text-5xl shadow-lg shadow-pink-500/40 animate-pulse-glow mb-2">
+                    <i id="final-badge-icon" class="fa-solid fa-trophy"></i>
+                </div>
+
+                <div>
+                    <h2 id="final-title" class="text-3xl sm:text-5xl font-extrabold text-white mb-2">¡Increíble Trabajo!</h2>
+                    <p id="final-subtitle" class="text-slate-300 text-base sm:text-lg max-w-md mx-auto">Has completado tu entrenamiento con decimales.</p>
+                </div>
+
+                <!-- Stats Summary Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 py-2">
+                    <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-white/10">
+                        <span class="text-xs text-slate-400 block font-medium">Puntaje Total</span>
+                        <span id="res-score" class="text-2xl font-black text-amber-400">0</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-white/10">
+                        <span class="text-xs text-slate-400 block font-medium">Precisión</span>
+                        <span id="res-accuracy" class="text-2xl font-black text-emerald-400">0%</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-white/10">
+                        <span class="text-xs text-slate-400 block font-medium">Aciertos</span>
+                        <span id="res-correct" class="text-2xl font-black text-blue-400">0/10</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-3.5 rounded-2xl border border-white/10">
+                        <span class="text-xs text-slate-400 block font-medium">Racha Máx.</span>
+                        <span id="res-streak" class="text-2xl font-black text-pink-400">0</span>
+                    </div>
+                </div>
+
+                <!-- Medals / Rewards list -->
+                <div class="bg-purple-950/40 border border-purple-500/30 p-4 rounded-2xl text-left">
+                    <h4 class="text-sm font-bold text-purple-200 mb-2 flex items-center gap-2">
+                        <i class="fa-solid fa-award text-amber-400"></i> Insignia de Nivel Obtenida:
+                    </h4>
+                    <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-400 flex items-center justify-center text-amber-300 text-2xl shrink-0">
+                            <i id="medal-icon" class="fa-solid fa-medal"></i>
+                        </div>
+                        <div>
+                            <div id="medal-name" class="font-bold text-white text-base">Maestro de los Decimales</div>
+                            <div id="medal-desc" class="text-xs text-slate-300">Respondiste correctamente casi todas las preguntas.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 pt-4">
+                    <button onclick="showScreen('screen-welcome')" class="flex-1 py-3.5 px-6 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold transition flex items-center justify-center gap-2 border border-white/10">
+                        <i class="fa-solid fa-house"></i>
+                        <span>Menú Principal</span>
+                    </button>
+                    <button onclick="startGame(gameState.mode)" class="flex-1 py-3.5 px-6 rounded-xl bg-gradient-to-r from-brand-pink to-brand-purple hover:from-pink-500 hover:to-purple-500 text-white font-bold shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i>
+                        <span>Jugar de Nuevo</span>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- THEORY / GUIDE MODAL -->
+    <div id="theory-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel border border-white/20 rounded-3xl max-w-2xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+            
+            <!-- Modal Header -->
+            <div class="p-5 border-b border-white/10 flex justify-between items-center bg-purple-950/40">
+                <div class="flex items-center gap-3">
+                    <i class="fa-solid fa-graduation-cap text-amber-400 text-2xl"></i>
+                    <h3 class="text-xl font-bold text-white">Guía de Clasificación de Decimales</h3>
+                </div>
+                <button onclick="toggleTheoryModal(false)" class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content (Scrollable) -->
+            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-200 leading-relaxed no-scrollbar">
+                
+                <!-- Section 1 -->
+                <div class="space-y-2">
+                    <h4 class="text-base font-bold text-emerald-400 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-check"></i> 1. Decimal Exacto (o Finito)
+                    </h4>
+                    <p class="text-slate-300">
+                        Tiene un número **finito** de cifras decimales (se termina). Al convertir la fracción a decimal dividiendo el numerador entre el denominador, la división da un resto de 0.
+                    </p>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-emerald-500/30 text-xs font-mono text-emerald-300 space-y-1">
+                        <div>• <strong>0.25</strong> (Tiene exactamente 2 decimales)</div>
+                        <div>• <strong>1.375</strong> (Tiene exactamente 3 decimales)</div>
+                        <div>• En Fracción: <strong>1/4 = 0.25</strong></div>
+                    </div>
+                </div>
+
+                <!-- Section 2 -->
+                <div class="space-y-2">
+                    <h4 class="text-base font-bold text-blue-400 flex items-center gap-2">
+                        <i class="fa-solid fa-rotate"></i> 2. Decimal Periódico Puro
+                    </h4>
+                    <p class="text-slate-300">
+                        La cifra o grupo de cifras que se repite infinitamente (llamado **período**) empieza **inmediatamente después de la coma decimal**.
+                    </p>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-blue-500/30 text-xs font-mono text-blue-300 space-y-1">
+                        <div>• <strong>0.333...</strong> (El período es 3 y empieza tras la coma)</div>
+                        <div>• <strong>1.272727...</strong> o <strong>1.<span class="vinculum">27</span></strong> (El período es 27)</div>
+                        <div>• En Fracción: <strong>1/3 = 0.333...</strong></div>
+                    </div>
+                </div>
+
+                <!-- Section 3 -->
+                <div class="space-y-2">
+                    <h4 class="text-base font-bold text-purple-400 flex items-center gap-2">
+                        <i class="fa-solid fa-shuffle"></i> 3. Decimal Periódico Mixto
+                    </h4>
+                    <p class="text-slate-300">
+                        Entre la coma decimal y el período hay una o más cifras que **no se repiten**. A estas cifras que no se repiten se les llama **anteperíodo**.
+                    </p>
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-purple-500/30 text-xs font-mono text-purple-300 space-y-1">
+                        <div>• <strong>0.1666...</strong> (El 1 es el anteperíodo, el 6 es el período)</div>
+                        <div>• <strong>2.13535...</strong> o <strong>2.1<span class="vinculum">35</span></strong> (Anteperíodo: 1, Período: 35)</div>
+                        <div>• En Fracción: <strong>1/6 = 0.1666...</strong></div>
+                    </div>
+                </div>
+
+                <!-- Summary Tip -->
+                <div class="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs space-y-1">
+                    <div class="font-bold text-amber-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-lightbulb"></i> ¡Truco Rápido!
+                    </div>
+                    <p>
+                        Mira lo que hay justo después de la coma:
+                        <br>• Si las cifras se acaban → <strong>Exacto</strong>.
+                        <br>• Si las cifras empiezan a repetirse de inmediato → <strong>Periódico Puro</strong>.
+                        <br>• Si hay números normales antes de que empiece la repetición → <strong>Periódico Mixto</strong>.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 border-t border-white/10 bg-purple-950/40 text-center">
+                <button onclick="toggleTheoryModal(false)" class="px-6 py-2 rounded-xl bg-brand-purple hover:bg-purple-600 text-white font-bold text-sm transition">
+                    Entendido, ¡A jugar!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="w-full text-center p-4 text-xs text-slate-400 border-t border-white/5">
+        <p>DecimaLab &copy; 2026 - Juego de Aprendizaje Matemático Interactivo</p>
+    </footer>
+
+    <!-- GAME LOGIC JAVASCRIPT -->
+    <script>
+        // Database of Question Items (Decimals, Notation Variants, Fractions & Explanations)
+        const decimalDatabase = [
+            // --- EXACT DECIMALS ---
+            {
+                type: 'exacto',
+                display: '0.25',
+                altDisplay: 'Representación en fracción: 1/4',
+                fraction: { num: 1, den: 4 },
+                explanation: 'Es un **Decimal Exacto** porque tiene una cantidad finita de decimales (2 cifras) y el número termina por completo.'
+            },
+            {
+                type: 'exacto',
+                display: '1.375',
+                altDisplay: 'Representación en fracción: 11/8',
+                fraction: { num: 11, den: 8 },
+                explanation: 'Es un **Decimal Exacto** porque sus cifras decimales finalizan en el 5.'
+            },
+            {
+                type: 'exacto',
+                display: '3.5',
+                altDisplay: 'Representación en fracción: 7/2',
+                fraction: { num: 7, den: 2 },
+                explanation: 'Es un **Decimal Exacto** ya que solo contiene una cifra decimal exacta.'
+            },
+            {
+                type: 'exacto',
+                display: '0.08',
+                altDisplay: 'Representación en fracción: 2/25',
+                fraction: { num: 2, den: 25 },
+                explanation: 'Es un **Decimal Exacto** porque tiene exactamente dos cifras tras la coma sin infinitas repeticiones.'
+            },
+            {
+                type: 'exacto',
+                display: '2.125',
+                altDisplay: 'Representación en fracción: 17/8',
+                fraction: { num: 17, den: 8 },
+                explanation: 'Es un **Decimal Exacto** porque la división 17 ÷ 8 da un residuo de 0.'
+            },
+
+            // --- PURE PERIODIC DECIMALS ---
+            {
+                type: 'periodico_puro',
+                display: '0.333...',
+                altDisplay: 'Notación con período: 0.<span class="vinculum">3</span> (Fracción: 1/3)',
+                fraction: { num: 1, den: 3 },
+                explanation: 'Es un **Decimal Periódico Puro** porque la cifra "3" se repite infinitamente justo después de la coma.'
+            },
+            {
+                type: 'periodico_puro',
+                display: '0.666...',
+                altDisplay: 'Notación con período: 0.<span class="vinculum">6</span> (Fracción: 2/3)',
+                fraction: { num: 2, den: 3 },
+                explanation: 'Es un **Decimal Periódico Puro** porque el período (6) empieza de inmediato tras el punto o coma decimal.'
+            },
+            {
+                type: 'periodico_puro',
+                display: '1.2727...',
+                altDisplay: 'Notación con período: 1.<span class="vinculum">27</span> (Fracción: 14/11)',
+                fraction: { num: 14, den: 11 },
+                explanation: 'Es un **Decimal Periódico Puro** porque el bloque de dos cifras "27" se repite de forma infinita inmediatamente después del entero.'
+            },
+            {
+                type: 'periodico_puro',
+                display: '2.8181...',
+                altDisplay: 'Notación con período: 2.<span class="vinculum">81</span> (Fracción: 31/11)',
+                fraction: { num: 31, den: 11 },
+                explanation: 'Es un **Decimal Periódico Puro** ya que las cifras repetidas "81" están inmediatamente después de la coma.'
+            },
+            {
+                type: 'periodico_puro',
+                display: '0.111...',
+                altDisplay: 'Notación con período: 0.<span class="vinculum">1</span> (Fracción: 1/9)',
+                fraction: { num: 1, den: 9 },
+                explanation: 'Es un **Decimal Periódico Puro** porque la cifra periódica "1" inicia inmediatamente tras el punto decimal.'
+            },
+
+            // --- MIXED PERIODIC DECIMALS ---
+            {
+                type: 'periodico_mixto',
+                display: '0.1666...',
+                altDisplay: 'Notación con período: 0.1<span class="vinculum">6</span> (Fracción: 1/6)',
+                fraction: { num: 1, den: 6 },
+                explanation: 'Es un **Decimal Periódico Mixto** porque entre la coma y el período (6) existe un anteperíodo (el 1) que no se repite.'
+            },
+            {
+                type: 'periodico_mixto',
+                display: '0.8333...',
+                altDisplay: 'Notación con período: 0.8<span class="vinculum">3</span> (Fracción: 5/6)',
+                fraction: { num: 5, den: 6 },
+                explanation: 'Es un **Decimal Periódico Mixto** porque tiene el 8 como anteperíodo y el 3 como cifra periódica repetitiva.'
+            },
+            {
+                type: 'periodico_mixto',
+                display: '2.13535...',
+                altDisplay: 'Notación con período: 2.1<span class="vinculum">35</span>',
+                fraction: null,
+                explanation: 'Es un **Decimal Periódico Mixto** porque tiene una cifra fija "1" (anteperíodo) antes del bloque repetitivo "35".'
+            },
+            {
+                type: 'periodico_mixto',
+                display: '0.41666...',
+                altDisplay: 'Notación con período: 0.41<span class="vinculum">6</span> (Fracción: 5/12)',
+                fraction: { num: 5, den: 12 },
+                explanation: 'Es un **Decimal Periódico Mixto** ya que tiene dos cifras de anteperíodo (41) antes de que empiece a repetirse el 6.'
+            },
+            {
+                type: 'periodico_mixto',
+                display: '1.08333...',
+                altDisplay: 'Notación con período: 1.08<span class="vinculum">3</span> (Fracción: 13/12)',
+                fraction: { num: 13, den: 12 },
+                explanation: 'Es un **Decimal Periódico Mixto** porque "08" es el anteperíodo y la cifra "3" es la parte periódica.'
+            }
+        ];
+
+        // Global State Variables
+        let gameState = {
+            mode: 'normal', // 'normal' or 'time'
+            questions: [],
+            currentIndex: 0,
+            score: 0,
+            streak: 0,
+            maxStreak: 0,
+            lives: 3,
+            correctCount: 0,
+            timerInterval: null,
+            timeLeft: 60,
+            isAnswered: false
+        };
+
+        // Screen Navigation Function
+        function showScreen(screenId) {
+            document.getElementById('screen-welcome').classList.add('hidden');
+            document.getElementById('screen-quiz').classList.add('hidden');
+            document.getElementById('screen-results').classList.add('hidden');
+            
+            document.getElementById(screenId).classList.remove('hidden');
+
+            if(screenId !== 'screen-quiz') {
+                document.getElementById('header-stats').classList.add('hidden');
+                clearInterval(gameState.timerInterval);
+            } else {
+                document.getElementById('header-stats').classList.remove('hidden');
+            }
+        }
+
+        // Modal Toggle
+        function toggleTheoryModal(show) {
+            const modal = document.getElementById('theory-modal');
+            if (show) {
+                modal.classList.remove('hidden');
+            } else {
+                modal.classList.add('hidden');
+            }
+        }
+
+        // Start New Game
+        function startGame(mode) {
+            gameState.mode = mode;
+            gameState.questions = shuffleArray([...decimalDatabase]); // Shuffle questions
+            gameState.currentIndex = 0;
+            gameState.score = 0;
+            gameState.streak = 0;
+            gameState.maxStreak = 0;
+            gameState.lives = 3;
+            gameState.correctCount = 0;
+            gameState.isAnswered = false;
+
+            // UI Adjustments for Mode
+            const timerDisplay = document.getElementById('timer-display');
+            if (mode === 'time') {
+                timerDisplay.classList.remove('hidden');
+                gameState.timeLeft = 60;
+                document.getElementById('time-left').textContent = gameState.timeLeft;
+                startTimer();
+            } else {
+                timerDisplay.classList.add('hidden');
+            }
+
+            updateHeaderStats();
+            showScreen('screen-quiz');
+            loadQuestion();
+        }
+
+        // Timer Function for Contrarreloj
+        function startTimer() {
+            clearInterval(gameState.timerInterval);
+            gameState.timerInterval = setInterval(() => {
+                gameState.timeLeft--;
+                document.getElementById('time-left').textContent = gameState.timeLeft;
+
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // Load Question UI
+        function loadQuestion() {
+            gameState.isAnswered = false;
+            document.getElementById('feedback-box').classList.add('hidden');
+
+            const current = gameState.questions[gameState.currentIndex];
+            
+            // Progress Bar & Question text
+            const totalQ = gameState.questions.length;
+            document.getElementById('question-number-text').textContent = `Pregunta ${gameState.currentIndex + 1} de ${totalQ}`;
+            const progressPct = ((gameState.currentIndex) / totalQ) * 100;
+            document.getElementById('progress-bar').style.width = `${progressPct}%`;
+
+            // Display formatting (Fraction or text)
+            const numberDisplay = document.getElementById('number-display');
+            numberDisplay.innerHTML = current.display;
+
+            const altDisplay = document.getElementById('alt-format-display');
+            altDisplay.innerHTML = current.altDisplay;
+        }
+
+        // Check Answer Logic
+        function checkAnswer(selectedType) {
+            if (gameState.isAnswered) return;
+            gameState.isAnswered = true;
+
+            const current = gameState.questions[gameState.currentIndex];
+            const isCorrect = selectedType === current.type;
+
+            const feedbackBox = document.getElementById('feedback-box');
+            const feedbackIcon = document.getElementById('feedback-icon-container');
+            const feedbackTitle = document.getElementById('feedback-title');
+            const feedbackExp = document.getElementById('feedback-explanation');
+
+            if (isCorrect) {
+                // Correct Answer Logic
+                gameState.score += 100 + (gameState.streak * 20);
+                gameState.streak++;
+                if (gameState.streak > gameState.maxStreak) gameState.maxStreak = gameState.streak;
+                gameState.correctCount++;
+
+                feedbackIcon.className = "w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+                feedbackIcon.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+                feedbackTitle.className = "text-xl font-bold text-emerald-300 mb-1";
+                feedbackTitle.textContent = "¡Correcto! Excelente deducción";
+
+                // Quick mini confetti burst for high streak
+                if (gameState.streak % 3 === 0) {
+                    confetti({ particleCount: 30, spread: 60, origin: { y: 0.8 } });
+                }
+            } else {
+                // Incorrect Answer Logic
+                gameState.streak = 0;
+                if (gameState.mode === 'normal') {
+                    gameState.lives--;
+                }
+
+                feedbackIcon.className = "w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0 bg-rose-500/20 text-rose-400 border border-rose-500/40";
+                feedbackIcon.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
+                feedbackTitle.className = "text-xl font-bold text-rose-300 mb-1";
+                feedbackTitle.textContent = "¡Casi! Revisa la explicación";
+            }
+
+            // Set explanation string with formatted highlight
+            feedbackExp.innerHTML = formatMarkdownText(current.explanation);
+            feedbackBox.classList.remove('hidden');
+
+            updateHeaderStats();
+
+            // Check if game over by lives
+            if (gameState.lives <= 0 && gameState.mode === 'normal') {
+                document.getElementById('next-btn').innerHTML = `<span>Ver Resultados</span> <i class="fa-solid fa-trophy"></i>`;
+            } else if (gameState.currentIndex >= gameState.questions.length - 1) {
+                document.getElementById('next-btn').innerHTML = `<span>Finalizar</span> <i class="fa-solid fa-flag-checkered"></i>`;
+            } else {
+                document.getElementById('next-btn').innerHTML = `<span>Siguiente Pregunta</span> <i class="fa-solid fa-arrow-right"></i>`;
+            }
+        }
+
+        // Format strong markdown text to HTML
+        function formatMarkdownText(text) {
+            return text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>');
+        }
+
+        // Next Question or End
+        function nextQuestion() {
+            if (gameState.lives <= 0 || gameState.currentIndex >= gameState.questions.length - 1) {
+                endGame();
+                return;
+            }
+
+            gameState.currentIndex++;
+            loadQuestion();
+        }
+
+        // Update Header UI (Score, Streak, Lives)
+        function updateHeaderStats() {
+            document.getElementById('score-text').textContent = gameState.score;
+            document.getElementById('streak-count').textContent = gameState.streak;
+
+            // Render hearts for lives
+            const livesContainer = document.getElementById('lives-container');
+            if (gameState.mode === 'time') {
+                livesContainer.innerHTML = `<span class="text-xs font-bold text-slate-400">Sin límite de vidas</span>`;
+            } else {
+                let heartsHtml = '';
+                for (let i = 0; i < 3; i++) {
+                    if (i < gameState.lives) {
+                        heartsHtml += `<i class="fa-solid fa-heart animate-bounce-short"></i>`;
+                    } else {
+                        heartsHtml += `<i class="fa-regular fa-heart opacity-30"></i>`;
+                    }
+                }
+                livesContainer.innerHTML = heartsHtml;
+            }
+        }
+
+        // End Game & Show Results Screen
+        function endGame() {
+            clearInterval(gameState.timerInterval);
+            showScreen('screen-results');
+
+            const totalAnswered = gameState.currentIndex + (gameState.lives > 0 ? 1 : 1);
+            const accuracy = Math.round((gameState.correctCount / Math.max(totalAnswered, 1)) * 100);
+
+            document.getElementById('res-score').textContent = gameState.score;
+            document.getElementById('res-accuracy').textContent = `${accuracy}%`;
+            document.getElementById('res-correct').textContent = `${gameState.correctCount}/${gameState.questions.length}`;
+            document.getElementById('res-streak').textContent = gameState.maxStreak;
+
+            // Determine badge & medal
+            const finalTitle = document.getElementById('final-title');
+            const finalSubtitle = document.getElementById('final-subtitle');
+            const medalIcon = document.getElementById('medal-icon');
+            const medalName = document.getElementById('medal-name');
+            const medalDesc = document.getElementById('medal-desc');
+            const finalBadgeIcon = document.getElementById('final-badge-icon');
+
+            if (accuracy >= 80) {
+                finalTitle.textContent = "¡Fantástico! ¡Eres un Experto!";
+                finalSubtitle.textContent = "Has demostrado un dominio magistral de la clasificación decimal.";
+                finalBadgeIcon.className = "fa-solid fa-crown text-amber-300";
+                medalIcon.className = "fa-solid fa-medal text-amber-400";
+                medalName.textContent = "Insignia de Oro: Genio Decimal";
+                medalDesc.textContent = "Completaste el entrenamiento con una precisión brillante.";
+                
+                // Launch full confetti celebration
+                triggerConfettiCelebration();
+
+            } else if (accuracy >= 50) {
+                finalTitle.textContent = "¡Buen Trabajo!";
+                finalSubtitle.textContent = "Tienes buenas bases, ¡sigue practicando para perfeccionar!";
+                finalBadgeIcon.className = "fa-solid fa-trophy text-slate-200";
+                medalIcon.className = "fa-solid fa-award text-slate-300";
+                medalName.textContent = "Insignia de Plata: Aprendiz Avanzado";
+                medalDesc.textContent = "Obtuviste más de la mitad de respuestas correctas.";
+            } else {
+                finalTitle.textContent = "¡Sigue Intentándolo!";
+                finalSubtitle.textContent = "La práctica hace al maestro. Repasa la guía e inténtalo de nuevo.";
+                finalBadgeIcon.className = "fa-solid fa-book-bookmark text-pink-300";
+                medalIcon.className = "fa-solid fa-seedling text-emerald-400";
+                medalName.textContent = "Insignia de Bronce: En Formación";
+                medalDesc.textContent = "Te recomendamos revisar la guía teórica para mejorar.";
+            }
+        }
+
+        // Confetti effect helper
+        function triggerConfettiCelebration() {
+            const count = 200;
+            const defaults = { origin: { y: 0.7 } };
+
+            function fire(particleRatio, opts) {
+                confetti(Object.assign({}, defaults, opts, {
+                    particleCount: Math.floor(count * particleRatio)
+                }));
+            }
+
+            fire(0.25, { spread: 26, startVelocity: 55 });
+            fire(0.2, { spread: 60 });
+            fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+            fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+            fire(0.1, { spread: 120, startVelocity: 45 });
+        }
+
+        // Shuffle Array helper
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+    </script>
+</body>
+</html>
